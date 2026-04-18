@@ -1,0 +1,75 @@
+# CampusMind - 极简框架忽略规则
+
+# 1. 敏感信息与配置 (Privacy)
+.env
+.env.*
+config.local.yaml
+secrets.json
+*.local
+
+# 2. 虚拟环境 (Virtual Environments)
+.venv/
+venv/
+env/
+ENV/
+
+# 3. 缓存与临时文件 (Cache & Temp)
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+tmp/*
+!tmp/.gitkeep
+temp/*
+
+# 4. 日志 (Logs)
+logs/*
+!logs/.gitkeep
+*.log
+
+# 5. 数据目录清理 (Data Cleanup - 仅保留结构，不上传内容)
+data/chroma_db/*
+!data/chroma_db/.gitkeep
+data/images/*
+!data/images/.gitkeep
+data/knowledge_images/*
+!data/knowledge_images/.gitkeep
+data/member_cache/*
+!data/member_cache/.gitkeep
+data/*.json
+data/*.sqlite
+# 屏蔽所有 Word 文档 (docx, doc)
+*.docx
+*.doc
+
+# 6. 系统与 IDE (System & IDE)
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 7. 协议栈相关大型二进制文件 (Protocols)
+# 虽然保留目录，但排除其中的可执行文件和大压缩包
+*.exe
+*.dll
+*.zip
+*.7z
+*.rar
+*.msi
+*.pdb
+# 排除 NapCat 内部版本和配置
+NapCat/NapCat.44498.Shell/versions/
+NapCat/NapCat.44498.Shell/config/
+NapCat/bootmain/
+# 排除 Lagrange 编译产物
+Lagrange/Lagrange.OneBot/bin/
+Lagrange/Lagrange.OneBot/obj/
+
+# 8. 测试脚本与文档 (Dev Junk)
+# 排除散落的测试文件和说明
+test_*.py
+dl.py
+dl_napcat.py
+run_*.py
+*plan.md
+GitHub上传规范与要求文档.md

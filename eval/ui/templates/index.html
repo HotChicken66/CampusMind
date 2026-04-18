@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>学小服 QQ Bot 评测大盘 - v3.0 Dynamic Stats</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #f4f7f6; font-family: 'Inter', -apple-system, system-ui, sans-serif; color: #2c3e50; }
+        .navbar { background: linear-gradient(135deg, #1a73e8 0%, #174ea6 100%); box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .card { border: none; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); transition: transform 0.2s; }
+        .card:hover { transform: translateY(-2px); }
+        
+        /* Stats Dashboard */
+        .dashboard-container { background: white; border-radius: 16px; padding: 25px; margin-bottom: 30px; border: 1px solid #eef2f7; }
+        .metric-title { font-size: 0.85rem; color: #7f8c8d; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .metric-value { font-size: 2rem; font-weight: 800; margin: 5px 0; }
+        .metric-sub { font-size: 0.8rem; opacity: 0.8; }
+        
+        /* Specific Metrics */
+        .text-pass { color: #27ae60; }
+        .text-recall { color: #2980b9; }
+        .text-emoji { color: #f39c12; }
+        
+        .error-pill { display: inline-block; padding: 5px 12px; border-radius: 20px; background: #fff5f5; color: #e74c3c; border: 1px solid #feb2b2; margin: 4px; font-size: 0.85rem; }
+        .error-count { font-weight: bold; margin-left: 5px; background: #e74c3c; color: white; padding: 1px 6px; border-radius: 10px; font-size: 0.75rem; }
+
+        /* Filter Bar */
+        .filter-bar { background: white; padding: 12px 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #eef2f7; }
+        .btn-filter.active { background-color: #1a73e8 !important; color: white !important; }
+        
+        /* Table */
+        .table-container { background: white; border-radius: 12px; padding: 15px; border: 1px solid #eef2f7; }
+        .badge-premium { background: linear-gradient(45deg, #ffd700, #ffa500); color: white; }
+        .badge-normal { background: #2ecc71; color: white; }
+        .badge-danger { background: #e74c3c; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark mb-4 py-3">
+        <div class="container">
+            <span class="navbar-brand mb-0 h1 fw-bold">🛡️ 学小服评测质量引擎 v3.0</span>
+            <div class="ms-auto text-white small opacity-75">
+                数据更新时间: {{ stats.updated_at or "实时计算" }}
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- 核心统计大盘 -->
+        <div class="dashboard-container shadow-sm border-0">
+            <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-2">
+                <h5 class="fw-bold mb-0">📈 评测质量全局看板 (实时汇总)</h5>
+                <span class="badge bg-light text-dark">打标进度: {{ stats.labeled }} / {{ stats.total }} ({{ "%.1f"|format(stats.labeled / stats.total * 100) }}%)</span>
+            </div>
+            
+            <div class="row g-4 text-center">
+                <!-- 综合通过率 -->
+                <div class="col-md-3 border-end">
+                    <div class="metric-title">综合回答通过率</div>
+                    <div class="metric-value text-pass">{{ "%.1f"|format(stats.pass_rate) }}%</div>
+                    <div class="metric-sub text-muted">全局打标通过率</div>
+                </div>
+                <!-- 维度细分 -->
+                <div class="col-md-6 border-end px-4">
+                    <div class="metric-title mb-2">分类通过率细分</div>
+                    <div class="row g-2 text-start">
+                        <div class="col-6">
+                            <div class="small">📚 知识库: <span class="fw-bold text-pass">{{ "%.1f"|format(stats.cat_pass_rates.knowledge.rate) }}%</span></div>
+                            <div class="progress mt-1" style="height: 4px;"><div class="progress-bar bg-success" style="width:{{stats.cat_pass_rates.knowledge.rate}}%"></div></div>
+                        </div>
+                        <div class="col-6">
+                            <div class="small">💬 人设/闲聊: <span class="fw-bold text-pass">{{ "%.1f"|format((stats.cat_pass_rates.persona.rate + stats.cat_pass_rates.chat.rate)/2) }}%</span></div>
+                            <div class="progress mt-1" style="height: 4px;"><div class="progress-bar bg-info" style="width:{{(stats.cat_pass_rates.persona.rate + stats.cat_pass_rates.chat.rate)/2}}%"></div></div>
+                        </div>
+                        <div class="col-6">
+                            <div class="small">🛡️ 攻击安全: <span class="fw-bold text-pass">{{ "%.1f"|format(stats.cat_pass_rates.attack.rate) }}%</span></div>
+                            <div class="progress mt-1" style="height: 4px;"><div class="progress-bar bg-warning" style="width:{{stats.cat_pass_rates.attack.rate}}%"></div></div>
+                        </div>
+                        <div class="col-6">
+                            <div class="small">⚠️ 能力边界: <span class="fw-bold text-pass">{{ "%.1f"|format(stats.cat_pass_rates.ood.rate) }}%</span></div>
+                            <div class="progress mt-1" style="height: 4px;"><div class="progress-bar bg-secondary" style="width:{{stats.cat_pass_rates.ood.rate}}%"></div></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- RAG/人设 快照 -->
+                <div class="col-md-3">
+                    <div class="metric-title">核心均值</div>
+                    <div class="d-flex justify-content-around mt-2">
+                        <div>
+                            <div class="fw-bold text-recall">{{ "%.2f"|format(stats.avg_cr) }}</div>
+                            <div class="small text-muted">召回(CR)</div>
+                        </div>
+                        <div>
+                            <div class="fw-bold text-emoji">{{ "%.1f"|format(stats.avg_emoji) }} ⭐</div>
+                            <div class="small text-muted">人设分</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4 pt-3 border-top">
+                <div class="metric-title mb-2 text-center">系统检测缺陷汇总</div>
+                <div class="text-center">
+                    {% for tag, count in stats.error_counts.items() %}
+                        <span class="error-pill">{{ tag }} <span class="error-count">{{ count }}</span></span>
+                    {% else %}
+                        <span class="text-muted small">暂无显著缺陷</span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 筛选与操作 -->
+        <div class="filter-bar d-flex align-items-center shadow-sm">
+            <div class="btn-group me-3" role="group">
+                <button id="btn-all" class="btn btn-sm btn-outline-primary btn-filter active" onclick="setFilter('all')">🚩 全部 ({{ stats.total }})</button>
+                <button id="btn-knowledge" class="btn btn-sm btn-outline-primary btn-filter" onclick="setFilter('knowledge')">📚 知识库 ({{ stats.cat_counts.knowledge }})</button>
+                <button id="btn-persona_chat" class="btn btn-sm btn-outline-primary btn-filter" onclick="setFilter('persona_chat')">💬 人设/闲聊 ({{ stats.cat_counts.persona_chat }})</button>
+                <button id="btn-attack" class="btn btn-sm btn-outline-primary btn-filter" onclick="setFilter('attack')">🛡️ 攻击安全 ({{ stats.cat_counts.attack }})</button>
+                <button id="btn-ood" class="btn btn-sm btn-outline-primary btn-filter" onclick="setFilter('ood')">⚠️ 能力边界 ({{ stats.cat_counts.ood }})</button>
+            </div>
+            <div class="flex-grow-1">
+                <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="🔍 搜索提问关键词..." oninput="renderTable()">
+            </div>
+        </div>
+
+        <!-- 评测明细 -->
+        <div class="table-container shadow-sm border-0 mb-5">
+            <table class="table table-hover align-middle">
+                <thead class="bg-light">
+                    <tr>
+                        <th onclick="setSort('category')" class="sort-icon px-3">分类</th>
+                        <th style="width: 45%">评测提问</th>
+                        <th onclick="setSort('context_recall')" class="sort-icon text-center">召回(CR)</th>
+                        <th onclick="setSort('emoji_score')" class="sort-icon text-center">人设评分</th>
+                        <th>标注标签</th>
+                        <th class="text-end px-3">详情</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 模态框 (与之前一致，保持逻辑稳定) -->
+    <div class="modal fade" id="detailModal" data-bs-backdrop="static" tabindex="-1">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content" style="border-radius: 16px; border: none; overflow: hidden;">
+                <div class="modal-header bg-light py-3 border-0">
+                    <h5 class="modal-title fw-bold">核验打标详情</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <h6 class="fw-bold text-primary mb-3">【参考参考切片 / 逻辑标准】 <span id="categoryBadge" class="badge bg-secondary ms-2 small"></span></h6>
+                            <div id="expectedBox" class="content-box mb-0" style="background:#f8faff; border-color:#d0e2ff;"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="fw-bold text-success mb-3">【学小服实际回复】</h6>
+                            <div id="resultBox" class="content-box mb-0" style="background:#f6fff8; border-color:#c3e6cb;"></div>
+                        </div>
+                    </div>
+                    <hr class="my-4">
+                    
+                    <div class="row">
+                        <div class="col-md-3 border-end">
+                            <div id="knowledgeTags" class="tag-section">
+                                <h6 class="fw-bold mb-3 small opacity-75">质量评价 (知识库):</h6>
+                                <button class="btn btn-sm btn-outline-success tag-btn w-100 text-start" onclick="toggleTag('正常回答')">✅ 正常回答</button>
+                                <button class="btn btn-sm btn-outline-warning tag-btn w-100 text-start mt-2" onclick="toggleTag('优质回答')">✨ 优质回答</button>
+                            </div>
+                            <div id="chatTags" class="tag-section mt-2">
+                                <h6 class="fw-bold mb-3 small opacity-75">对话质量评价:</h6>
+                                <button class="btn btn-sm btn-outline-success tag-btn w-100 text-start" onclick="toggleTag('好')">👍 好 (人设佳)</button>
+                                <button class="btn btn-sm btn-outline-danger tag-btn w-100 text-start mt-2" onclick="toggleTag('差')">👎 差 (出戏)</button>
+                            </div>
+                        </div>
+                        <div class="col-md-3 border-end">
+                            <div id="securityTags" class="tag-section">
+                                <h6 class="fw-bold mb-3 small opacity-75">安全判定:</h6>
+                                <button class="btn btn-sm btn-outline-success tag-btn w-100 text-start" onclick="toggleTag('成功')">🛡️ 成功 (拦截)</button>
+                                <button class="btn btn-sm btn-outline-danger tag-btn w-100 text-start mt-2" onclick="toggleTag('失败')">❌ 失败 (绕过)</button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div id="defectTags" class="tag-section">
+                                <h6 class="fw-bold mb-3 small opacity-75">缺陷标注 (多选):</h6>
+                                <div class="d-flex flex-wrap">
+                                    <button class="btn btn-sm btn-outline-danger tag-btn" onclick="toggleTag('答非所问')">答非所问</button>
+                                    <button class="btn btn-sm btn-outline-danger tag-btn" onclick="toggleTag('遗落要点')">遗落要点</button>
+                                    <button class="btn btn-sm btn-outline-danger tag-btn" onclick="toggleTag('捏造事实')">捏造事实</button>
+                                    <button class="btn btn-sm btn-outline-danger tag-btn" onclick="toggleTag('系统缺乏知识')">缺乏知识</button>
+                                    <button class="btn btn-sm btn-outline-danger tag-btn" onclick="toggleTag('对话类型判断错误')">分类错误</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0 px-4">
+                    <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">取消</button>
+                    <button type="button" id="saveBtn" class="btn btn-primary px-5 fw-bold" onclick="saveTags()">保存打标</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const rawData = {{ results_json | safe }};
+        let currentFilter = 'all';
+        let currentSort = { key: null, asc: true };
+        let currentItemIdx = null;
+        let detailModal = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
+            renderTable();
+        });
+
+        function setFilter(cat) {
+            currentFilter = cat;
+            document.querySelectorAll('.btn-filter').forEach(btn => btn.classList.remove('active'));
+            const activeBtn = document.getElementById(`btn-${cat}`);
+            if (activeBtn) activeBtn.classList.add('active');
+            renderTable();
+        }
+
+        function setSort(key) {
+            if (currentSort.key === key) currentSort.asc = !currentSort.asc;
+            else { currentSort.key = key; currentSort.asc = false; }
+            renderTable();
+        }
+
+        function renderTable() {
+            const search = (document.getElementById('searchInput').value || "").toLowerCase();
+            let filtered = rawData.filter(item => {
+                const matchesSearch = item.question.toLowerCase().includes(search);
+                if (currentFilter === 'all') return matchesSearch;
+                if (currentFilter === 'persona_chat') return matchesSearch && (item.category === 'persona' || item.category === 'chat');
+                return matchesSearch && item.category === currentFilter;
+            });
+
+            if (currentSort.key) {
+                filtered.sort((a, b) => {
+                    let v1 = a[currentSort.key] ?? 0;
+                    let v2 = b[currentSort.key] ?? 0;
+                    return currentSort.asc ? (v1 > v2 ? 1 : -1) : (v1 < v2 ? 1 : -1);
+                });
+            }
+
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = filtered.map(item => {
+                const origIdx = rawData.indexOf(item);
+                let tagHtml = (item.error_types || []).map(t => {
+                    let cls = (t === '优质回答' || t === '好') ? 'badge-premium' : ((t === '正常回答' || t === '成功') ? 'badge-normal' : 'bg-danger');
+                    return `<span class="badge ${cls} me-1" style="font-size:0.75rem;">${t}</span>`;
+                }).join('');
+
+                const formatNum = (val) => (val === null || val === undefined) ? '-' : parseFloat(val).toFixed(1);
+
+                return `
+                    <tr class="px-3">
+                        <td class="px-3"><span class="badge bg-secondary opacity-50">${item.category}</span></td>
+                        <td class="small fw-bold">${item.question}</td>
+                        <td class="text-center">${formatNum(item.context_recall)}</td>
+                        <td class="text-center">${item.emoji_score ? item.emoji_score + ' ⭐' : '-'}</td>
+                        <td>${tagHtml}</td>
+                        <td class="text-end px-3">
+                            <button class="btn btn-sm btn-primary rounded-pill px-3" onclick="showDetail(${origIdx})">打标</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function showDetail(idx) {
+            currentItemIdx = idx;
+            const item = rawData[idx];
+            document.getElementById('expectedBox').innerText = item.expected_chunk || "（无参考切片，仅验证意图识别/闲聊质量）";
+            document.getElementById('resultBox').innerText = item.result;
+            document.getElementById('categoryBadge').innerText = item.category.toUpperCase();
+
+            document.getElementById('knowledgeTags').style.display = (item.category === 'knowledge') ? 'block' : 'none';
+            document.getElementById('chatTags').style.display = (item.category === 'chat' || item.category === 'persona') ? 'block' : 'none';
+            document.getElementById('securityTags').style.display = (item.category === 'attack' || item.category === 'ood') ? 'block' : 'none';
+            
+            updateTagButtons(item);
+            detailModal.show();
+        }
+
+        function updateTagButtons(item) {
+            const btns = document.querySelectorAll('.tag-btn');
+            btns.forEach(btn => {
+                const tagName = btn.innerText.replace(/[^一-龥]/g, ''); 
+                const isActive = (item.error_types || []).includes(tagName);
+                btn.classList.toggle('active', isActive);
+                
+                if (btn.classList.contains('btn-outline-danger')) {
+                    btn.classList.toggle('btn-danger', isActive);
+                    btn.classList.toggle('btn-outline-danger', !isActive);
+                } else if (btn.classList.contains('btn-outline-success')) {
+                    btn.classList.toggle('btn-success', isActive);
+                    btn.classList.toggle('btn-outline-success', !isActive);
+                } else if (btn.classList.contains('btn-outline-warning')) {
+                    btn.classList.toggle('btn-warning', isActive);
+                    btn.classList.toggle('btn-outline-warning', !isActive);
+                }
+            });
+        }
+
+        function toggleTag(rawTagName) {
+            const item = rawData[currentItemIdx];
+            if (!item.error_types) item.error_types = [];
+            const tagName = rawTagName.replace(/[^一-龥]/g, '');
+            const tidx = item.error_types.indexOf(tagName);
+            if (tidx > -1) item.error_types.splice(tidx, 1);
+            else item.error_types.push(tagName);
+            updateTagButtons(item);
+        }
+
+        async function saveTags() {
+            const btn = document.getElementById('saveBtn');
+            const item = rawData[currentItemIdx];
+            btn.disabled = true;
+            btn.innerText = '正在同步数据...';
+
+            try {
+                const response = await fetch('/api/save_tags', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: item.id, error_types: item.error_types })
+                });
+                if (response.ok) {
+                    detailModal.hide();
+                    location.reload(); // 刷新以重读大盘数据
+                } else alert('保存失败');
+            } catch (e) {
+                alert('网络连接异常');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = '保存打标';
+            }
+        }
+    </script>
+</body>
+</html>
